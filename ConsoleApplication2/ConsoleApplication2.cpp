@@ -452,56 +452,81 @@ namespace Task9
 {
     int main(int argc, char** argv)
     {
-        int arr[] = {15, 234, 765, 4, 564, 823, 45, 24, 312, 21, 34, 165};
-        constexpr int arr_size = 12, cropped_size = 4;
+        const int n = 10;
         int rank, size;
         MPI_Init(&argc, &argv);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-        int cropped_arr[cropped_size];
+        int* array = (int*)malloc(n);
         if (!rank)
         {
+            printf("Start array:\n");
+            for (int i = 0; i < n; ++i)
+            {
+                array[i] = rand();
+                printf("%d ", array[i]);
+            }
+            printf("\n");
+        }
+
+        int* cropped_arr;
+        int crop_size = rank + 1 == size ? n - (rank * (n / size)) : n / size;
+        cropped_arr = (int*)malloc(crop_size);
+
+        if (!rank)
+        {
+            int k = crop_size;
             for (int i = 1; i < size; ++i)
             {
+                int cropped_size = i + 1 == size ? n - (i * (n / size)) : n / size;
                 for (int j = 0; j < cropped_size; ++j)
-                    cropped_arr[j] = arr[j + i * cropped_size];
+                {
+                    cropped_arr[j] = array[k];
+                    k++;
+                }
 
                 MPI_Send(cropped_arr, cropped_size, MPI_INT, i, 0,MPI_COMM_WORLD);
             }
 
             MPI_Status st;
-            int result[arr_size];
-            for (int j = 0; j < cropped_size; ++j)
-                result[j] = arr[arr_size - j - 1];
+            k = 0;
+            int* result = (int*)malloc(n);
+            for (int j = 0; j < crop_size; ++j)
+                result[n - crop_size - j + 1] = array[j];
 
             for (int i = size - 1; i > 0; i--)
             {
+                int cropped_size = i + 1 == size ? n - (i * (n / size)) : n / size;
                 MPI_Recv(cropped_arr, cropped_size, MPI_INT, i, MPI_ANY_TAG,MPI_COMM_WORLD, &st);
                 for (int j = 0; j < cropped_size; ++j)
-                    result[i * cropped_size + j] = cropped_arr[j];
+                {
+                    result[k] = cropped_arr[j];
+                    k++;
+                }
             }
 
-            for (int i = 0; i < arr_size; ++i)
+            printf("Result:\n");
+            for (int i = 0; i < n; ++i)
                 printf("%d ", result[i]);
         }
         else
         {
             MPI_Status st;
-            MPI_Recv(cropped_arr, cropped_size, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG,MPI_COMM_WORLD, &st);
+            MPI_Recv(cropped_arr, crop_size, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG,MPI_COMM_WORLD, &st);
             printf("Thread %d: ", rank);
-            for (int i = 0; i < cropped_size; ++i)
+            for (int i = 0; i < crop_size; ++i)
                 printf("%d ", cropped_arr[i]);
 
-            int reverse[cropped_size];
-            for (int i = 0; i < cropped_size; ++i)
-                reverse[i] = cropped_arr[cropped_size - 1 - i];
+            int* reverse = (int*)malloc(crop_size);
+            for (int i = 0; i < crop_size; ++i)
+                reverse[i] = cropped_arr[crop_size - 1 - i];
 
             printf("Reverse: ");
-            for (int i = 0; i < cropped_size; ++i)
+            for (int i = 0; i < crop_size; ++i)
                 printf("%d ", reverse[i]);
 
-            MPI_Send(reverse, cropped_size, MPI_INT, 0, 0,MPI_COMM_WORLD);
+            MPI_Send(reverse, crop_size, MPI_INT, 0, 0,MPI_COMM_WORLD);
         }
 
         MPI_Finalize();
@@ -510,7 +535,9 @@ namespace Task9
     }
 }
 
+
+
 int main(int argc, char* argv[])
 {
-    Task8::main(argc, argv);
+    Task9::main(argc, argv);
 }
